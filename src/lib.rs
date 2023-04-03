@@ -4,12 +4,6 @@ use std::str;
 
 use sha2::Sha256;
 use base64;
-use sha2::digest::typenum::Length;
-
-struct AuthParameters {
-    challenge: String,
-    salt: String
-}
 
 pub struct ObsConnection {
     ip: SocketAddr,
@@ -18,7 +12,7 @@ pub struct ObsConnection {
 
 impl ObsConnection {
     pub fn new (ip: SocketAddr) -> Result<ObsConnection, String> {
-        let mut stream = match ObsConnection::connect(&ip) {
+        let stream = match ObsConnection::connect(&ip) {
             Ok(s) => s,
             Err(e) => return Err(e)
         };
@@ -49,6 +43,8 @@ impl ObsConnection {
             Ok(payload) => payload,
             Err(e) => return Err(format!("Could not read Hello Message from OBS: {}", e.to_string()))
         };
+
+        self.answer_hello(hello_payload).unwrap();
 
         Ok(())
     }
@@ -93,6 +89,61 @@ impl ObsConnection {
         Ok(payload)
     }
 
+    fn answer_hello(&self, mut hello: String) -> Result<(), String> {
+        hello = self.clean_up_hello_message(hello);
+        let mut auth: Option<String> = None;
+
+        //Auth needed
+        if hello.contains("\"authentication\":") {
+            auth = match self.get_hello_auth(hello.clone()) {
+                Ok(auth) => Some(auth),
+                Err(e) => return Err(format!("Error while getting authentication information from Hello message: {}", e))
+            }
+        }
+
+        Ok(())
+    }
+
+    fn clean_up_hello_message(&self, mut hello: String) -> String {
+        hello =hello.replace("{", "").replace("}", "");
+        println!("{}\r\n", hello);
+        hello = hello.replace("\"d\":", "");
+        println!("{}\r\n", hello);
+        hello
+    }
+
+    fn get_hello_auth (&self, mut hello: String) -> Result<String, String> {
+        hello = hello.replace("\"authentication\":", "");
+        println!("{}\r\n", hello);
+        let valuepairs = hello.split(",");
+        
+        let mut challenge = String::new();
+        let mut salt = String::new();
+
+        for valuepair in valuepairs {
+            if valuepair.contains("\"challenge\"") {
+                let split: Vec<&str> = valuepair.split(":").collect();
+                if split.len() == 2 {
+                    challenge = split[1].replace("\"", "");
+                }
+                else {
+                    return Err(format!("value of challange cannot be read. challange valuepair: {}", valuepair));
+                }
+            } 
+            else if valuepair.contains("\"salt\"") {
+                let split: Vec<&str> = valuepair.split(":").collect();
+                if split.len() == 2 {
+                    salt = split[1].replace("\"", "");
+                }
+                else {
+                    return Err(format!("value of salt cannot be read. challange valuepair: {}", valuepair));
+                }
+            }
+        }
+
+        Ok(String::new())
+    }
+
     fn read_payload(&mut self) -> Result<String, String> {
         //payload header TODO: check values of buffer[0]
         let mut buffer: [u8; 2] = [0; 2];
@@ -107,8 +158,7 @@ impl ObsConnection {
 
         //payload
         let mut payload = Vec::new();
-        for i in 0..length {
-            
+        for _ in 0..length {
             let mut byte: [u8; 1] = [0; 1];
             match self.stream.read(&mut byte) {
                 Ok(_) => payload.push(byte[0]),
