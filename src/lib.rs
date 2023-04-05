@@ -2,8 +2,9 @@ use std::net::{TcpStream, SocketAddr};
 use std::io::{prelude::*, BufReader};
 use std::str;
 
-use sha2::Sha256;
-use base64;
+use sha2::{Sha256, Digest};
+use base64::{Engine as _, engine::general_purpose};
+
 
 pub struct ObsConnection {
     ip: SocketAddr,
@@ -11,13 +12,13 @@ pub struct ObsConnection {
 }
 
 impl ObsConnection {
-    pub fn new (ip: SocketAddr) -> Result<ObsConnection, String> {
+    pub fn new (ip: SocketAddr, passwd: String) -> Result<ObsConnection, String> {
         let stream = match ObsConnection::connect(&ip) {
             Ok(s) => s,
             Err(e) => return Err(e)
         };
         let mut obs_con = ObsConnection { ip, stream};
-        match obs_con.init() {
+        match obs_con.init(passwd) {
             Ok(()) => (),
             Err(e) => return Err(e)
         };
@@ -33,7 +34,7 @@ impl ObsConnection {
     }
 
     ///Initialise OBS Websocket connection
-    fn init(&mut self) -> Result<(), String> {
+    fn init(&mut self, passwd: String) -> Result<(), String> {
         let str = self.get_initstr();
         match self.stream.write(str.as_bytes()) {
             Ok(_) => (),
@@ -44,7 +45,15 @@ impl ObsConnection {
             Err(e) => return Err(format!("Could not read Hello Message from OBS: {}", e.to_string()))
         };
 
-        self.answer_hello(hello_payload).unwrap();
+        match self.answer_hello(hello_payload, passwd) {
+            Ok(()) => (),
+            Err(e) => return Err(format!("Could not answer Hello message: {}", e))
+        };
+
+        match self.read_payload() {
+            Ok(payload) => println!("{}", payload),
+            Err(e) => println!("error while reading answer of auth: {}", e)
+        };
 
         Ok(())
     }
@@ -89,22 +98,28 @@ impl ObsConnection {
         Ok(payload)
     }
 
-    fn answer_hello(&self, mut hello: String) -> Result<(), String> {
+    fn answer_hello(&mut self, mut hello: String, passwd: String) -> Result<(), String> {
         hello = self.clean_up_hello_message(hello);
         let mut auth: Option<String> = None;
 
         //Auth needed
         if hello.contains("\"authentication\":") {
-            auth = match self.get_hello_auth(hello.clone()) {
+            auth = match self.get_hello_auth(hello.clone(), passwd) {
                 Ok(auth) => Some(auth),
                 Err(e) => return Err(format!("Error while getting authentication information from Hello message: {}", e))
-            }
+            };
         }
+
+        match self.stream.write(&mut self.create_websocket_message(self.get_hello_answer(auth))) {
+            Ok(_) => (),
+            Err(e) => return Err(format!("Error while sending authentication message: {}", e.to_string()))
+        };
 
         Ok(())
     }
 
     fn clean_up_hello_message(&self, mut hello: String) -> String {
+        println!("{}\r\n", hello);
         hello =hello.replace("{", "").replace("}", "");
         println!("{}\r\n", hello);
         hello = hello.replace("\"d\":", "");
@@ -112,7 +127,23 @@ impl ObsConnection {
         hello
     }
 
-    fn get_hello_auth (&self, mut hello: String) -> Result<String, String> {
+    fn get_hello_answer(&self, auth: Option<String>) -> String  {
+        let mut answer = "{".to_string();
+        answer = answer + "\"op\": 1,";
+        answer = answer + "\"d\": {";
+        answer = answer + "\"rpcVersion\": 1,";
+        match auth {
+            Some(auth_string) => answer = format!("{}\"authentication\": \"{}\",", answer, auth_string),
+            None => ()
+        };
+        answer = answer + "\"eventSubscriptions\": 0";
+        answer = answer + "}}";
+
+        println!("{}", answer);
+        answer
+    }
+
+    fn get_hello_auth (&self, mut hello: String, mut passwd: String) -> Result<String, String> {
         hello = hello.replace("\"authentication\":", "");
         println!("{}\r\n", hello);
         let valuepairs = hello.split(",");
@@ -141,7 +172,25 @@ impl ObsConnection {
             }
         }
 
-        Ok(String::new())
+        let auth_string = match self.create_base64_secret(format!("{}{}", passwd, salt)) {
+            Ok(secret) => secret,
+            Err(e) => return Err(format!("Error while creating secret: {}", e))
+        };
+        match self.create_base64_secret(format!("{}{}", auth_string, challenge)) {
+            Ok(secret) => Ok(secret),
+            Err(e) => Err(format!("Error while creating secret: {}", e))
+        }
+    }
+
+    fn create_base64_secret(&self, text: String) -> Result<String, String> {
+        println!("{}", text);
+        //Sha265 Hash
+        let mut hasher = Sha256::new();
+        hasher.update(text);
+        let hash = hasher.finalize();
+        
+        //base64 encoding
+        Ok(general_purpose::STANDARD.encode(hash))
     }
 
     fn read_payload(&mut self) -> Result<String, String> {
@@ -165,11 +214,23 @@ impl ObsConnection {
                 Err(e) => return Err(format!("Error while getting payload: {}", e.to_string()))
             }
         }
-        
-        match str::from_utf8(&payload) {
-            Ok(string) => Ok(string.to_string()),
-            Err(e) => Err(format!("Error while converting payload to utf8 string: {}", e.to_string()))
+
+        //println!("header 0: {}", buffer[0]);
+        //println!("header 1: {}", buffer[1]);
+        //for byte in payload.clone() {
+        //    print!("{} |", byte)
+        //}
+        //print!("\r\n");
+        let mut chars: Vec<char> = Vec::new();
+        for byte in payload.clone() {
+            chars.push(byte as char)
         }
+        Ok(String::from_iter(chars))
+        
+        //match str::from_utf8(&payload) {
+        //    Ok(string) => Ok(string.to_string()),
+        //    Err(e) => Err(format!("Error while converting payload to utf8 string: {}", e.to_string()))
+        //}
     }
 
     fn get_payload_size(&mut self, init_size: u8) -> Result<u64, String> {
@@ -192,5 +253,32 @@ impl ObsConnection {
         else {
             Ok(init_size.into())
         }
+    }
+
+    fn create_websocket_message(&self, payload: String) -> Vec<u8> {
+        let mut header = Vec::new();
+        header.push(129 as u8);
+        if payload.as_bytes().len() > 125 && payload.as_bytes().len() <= 131071 {
+            header.push(126 as u8);
+            header.extend_from_slice(&(payload.as_bytes().len() as u16).to_be_bytes());
+        }
+        else if payload.as_bytes().len() > 131071 {
+            header.push(127 as u8);
+            header.extend_from_slice(&(payload.as_bytes().len() as u64).to_be_bytes());
+        }
+        else {
+            header.push(payload.as_bytes().len() as u8);
+        }
+
+        //println!("header:");
+        //for byte in header.clone() {
+        //    println!("{}", byte)
+        //}
+
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&header);
+        bytes.extend_from_slice(payload.as_bytes());
+        bytes
     }
 }

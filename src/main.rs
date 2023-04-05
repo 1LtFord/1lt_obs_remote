@@ -5,7 +5,7 @@ use obs_remote_1lt::ObsConnection;
 
 fn main() -> Result<(), String>{
     
-    let obs = match ObsConnection::new(SocketAddr::from(([127, 0, 0, 1], 4455))) {
+    let obs = match ObsConnection::new(SocketAddr::from(([127, 0, 0, 1], 4455)), format!("b0n2dzpwZwyFiZP6")) {
         Ok(obs) => obs,
         Err(e) =>  { 
             println!("Error while connecting to OBS: {}", e);
@@ -13,6 +13,8 @@ fn main() -> Result<(), String>{
         }
     };
 
+    
+    
     Ok(())
 }
 
