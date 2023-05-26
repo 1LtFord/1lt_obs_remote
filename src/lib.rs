@@ -5,6 +5,8 @@ use std::str;
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose};
 
+mod message;
+mod header;
 
 pub struct ObsConnection {
     ip: SocketAddr,
@@ -257,17 +259,22 @@ impl ObsConnection {
 
     fn create_websocket_message(&self, payload: String) -> Vec<u8> {
         let mut header = Vec::new();
-        header.push(129 as u8);
+
+        //Header Byte 1
+        header.push(129 as u8); //Final Fragment + Opcode 1 (Text frame)
+
+        //Header Byte 2
+        //Masked Payload + Payload Length
         if payload.as_bytes().len() > 125 && payload.as_bytes().len() <= 131071 {
-            header.push(126 as u8);
+            header.push((128 + 126) as u8);
             header.extend_from_slice(&(payload.as_bytes().len() as u16).to_be_bytes());
         }
         else if payload.as_bytes().len() > 131071 {
-            header.push(127 as u8);
+            header.push((128 + 127) as u8);
             header.extend_from_slice(&(payload.as_bytes().len() as u64).to_be_bytes());
         }
         else {
-            header.push(payload.as_bytes().len() as u8);
+            header.push((128 + payload.as_bytes().len()) as u8);
         }
 
         //println!("header:");
