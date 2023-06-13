@@ -7,6 +7,8 @@ use base64::{Engine as _, engine::general_purpose};
 
 mod message;
 mod header;
+mod payload;
+mod obs;
 
 pub struct ObsConnection {
     ip: SocketAddr,
