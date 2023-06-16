@@ -22,7 +22,7 @@ impl Message {
 
     pub fn from_bytes (bytes: Vec<u8>) -> Result<Message, String> {
         //get header
-        let header = match Header::from_bytes(&bytes) {
+        let header = match Header::from_bytes(bytes.clone()) {
             Ok(h) => h,
             Err(e) => return Err(Header::error_strings(e)) 
         };
@@ -31,7 +31,7 @@ impl Message {
         
         let mut mask: Option<[u8; 4]> = None;
         //get mask if set
-        if header.get_value_mask() {
+        if header.has_mask_byte_set() {
             mask = match Message::get_mask_from_bytes(bytes.clone(), skip_bytes.clone()) {
                 Ok(mask) => Some(mask),
                 Err(e) => return Err(Message::error_strings(e))
@@ -63,6 +63,10 @@ impl Message {
         message.extend_from_slice(&masked_payload);
 
         message
+    }
+
+    pub fn payload_value(&self) -> String {
+        self.payload.clone()
     }
 
     fn mask_payload(payload: Vec<u8>, mask: [u8; 4]) -> Vec<u8> {

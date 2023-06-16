@@ -29,12 +29,12 @@ impl Header {
         return self.payload_length.clone();
     }
 
-    pub fn get_value_mask(&self) -> bool {
+    pub fn has_mask_byte_set(&self) -> bool {
         return self.masked.clone();
     }
 
-    pub fn from_bytes(bytes: &Vec<u8>) -> Result<Header, HeaderError> {
-        match Header::check_bytes(bytes) {
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Header, HeaderError> {
+        match Header::check_bytes(&bytes) {
             Ok(()) => (),
             Err(error) => return Err(error)
         };
@@ -101,7 +101,7 @@ impl Header {
         }
     }
 
-    fn get_payload_length_from_message (bytes: &Vec<u8>) -> u64 {
+    pub fn get_payload_length_from_message (bytes: &Vec<u8>) -> u64 {
         let minimum_header: [u8; 2] = [bytes[0], bytes[1]];
         let header_size = Header::required_header_size(minimum_header);
         let mut payload_length: u64 = 0;

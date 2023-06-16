@@ -9,6 +9,7 @@ mod message;
 mod header;
 mod payload;
 mod obs;
+pub mod websocket;
 
 pub struct ObsConnection {
     ip: SocketAddr,

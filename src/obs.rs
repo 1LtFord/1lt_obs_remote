@@ -32,7 +32,7 @@ pub fn obs_opcode_match_value(obs_op_code: &OBSOpcode) -> String {
     }.to_string()
 }
 
-pub fn obs_opcode_match_enum(obs_op_code: &String) -> Result<OBSOpcode, OBSMatchError> {
+pub fn obs_opcode_match_enum(obs_op_code: &String) -> Result<OBSOpcode, String> {
     Ok(match &obs_op_code[..] {
         "0" => OBSOpcode::Hello,
         "1" => OBSOpcode::Identify,
@@ -43,7 +43,7 @@ pub fn obs_opcode_match_enum(obs_op_code: &String) -> Result<OBSOpcode, OBSMatch
         "7" => OBSOpcode::RequestResponse,
         "8" => OBSOpcode::RequestBatch,
         "9" => OBSOpcode::RequestBatchResponse,
-        _ => return Err(OBSMatchError::OBSOpcodeNotFound)
+        _ => return Err(error_strings(OBSMatchError::OBSOpcodeNotFound, Some(obs_op_code.clone())))
     })
 }
 
@@ -305,4 +305,19 @@ pub fn obs_event_subscription_match_enum(obs_event_subscription: &String) -> Res
         "(1 << 19)" => OBSEventSubscription::SceneItemTransformChanged,
         _ => return Err(OBSMatchError::OBSEventSubscriptionNotFound)
     })
+}
+
+fn error_strings(obs_match_error: OBSMatchError, information: Option<String>) -> String {
+    let mut message = match obs_match_error {
+        OBSMatchError::OBSOpcodeNotFound => "This OBS opcode does not exist",
+        OBSMatchError::OBSWebSocketCloseCodeNotFound => "This OBS WebSocket close code does not exist",
+        OBSMatchError::OBSRequestBatchExecutionTypeNotFound => "This OBS request batch execution type does not exist",
+        OBSMatchError::OBSRequestStatusNotFound => "This OBS reuquest status does not exist",
+        OBSMatchError::OBSEventSubscriptionNotFound => "This OBS event subscription does not exist"
+    }.to_string();
+
+    match information {
+        Some(information) => format!("{}: {}", message, information),
+        None => message
+    }
 }
