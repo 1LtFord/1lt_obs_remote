@@ -202,8 +202,17 @@ impl Payload {
         Err("".to_string())
     }
 
-    fn opcode_request_response_from_string(message: String) -> Result<Payload, String> {
-        Err("".to_string())
+    fn opcode_request_response_from_string(mut message: String) -> Result<Payload, String> {
+        message = message.replace("\"op\":7", "");
+        message = message.replace("\"requestStatus\":", "");
+        message = message.replace("\"responseData\":", "");
+        println!("{message}");
+
+        let opcode = OBSOpcode::Request;
+        match Payload::parse_attributes(message) {
+            Ok(attributes) => Ok(Payload{attributes, opcode}),
+            Err(error) => Err(error)
+        }
     }
 
     fn opcode_request_batch_from_string(message: String) -> Result<Payload, String> {

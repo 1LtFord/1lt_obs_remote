@@ -409,7 +409,6 @@ impl Websocket {
         Ok(String::from_iter(message))
     }*/
 
-
     fn error_strings(error: WebsocketError, informations: Option<String>) -> String {
         let string = match error {
             WebsocketError::ConnectError => "Error while connecting to WebSocket server",
