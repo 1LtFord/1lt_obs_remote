@@ -20,6 +20,14 @@ impl Message {
         Message{header, mask, payload}
     }
 
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
+    pub fn payload(&self) -> &String {
+        &self.payload
+    }
+
     pub fn from_bytes (bytes: Vec<u8>) -> Result<Message, String> {
         //get header
         let header = match Header::from_bytes(bytes.clone()) {
@@ -71,9 +79,10 @@ impl Message {
 
     fn mask_payload(payload: Vec<u8>, mask: [u8; 4]) -> Vec<u8> {
         let mut masked_payload: Vec<u8> = Vec::new();
-        let index: usize = 0;
+        let mut index: usize = 0;
         for byte in payload {
             masked_payload.push(byte ^ mask[(index % 4) as usize]);
+            index += 1;
         }
         masked_payload
     }

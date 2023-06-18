@@ -85,7 +85,7 @@ impl Header {
     ///check if vector of bytes fulfills all criteria to be correctly interpreted as a WebSocket header
     fn check_bytes(bytes: &Vec<u8>) -> Result<(), HeaderError> {
         //check if vector has minimum header size
-        if bytes.len() > 2 {
+        if bytes.len() >= 2 {
             let minimum_header: [u8; 2] = [bytes[0], bytes[1]];
 
             //check if vector has required header size

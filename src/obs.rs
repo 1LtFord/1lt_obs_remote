@@ -6,6 +6,7 @@ pub enum OBSMatchError {
     OBSEventSubscriptionNotFound,
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum OBSOpcode {
     Hello,
     Identify,
@@ -47,6 +48,7 @@ pub fn obs_opcode_match_enum(obs_op_code: &String) -> Result<OBSOpcode, String> 
     })
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum OBSWebSocketCloseCode {
     DontClose,
     UnknownReason,
@@ -100,6 +102,7 @@ pub fn obs_websocket_close_code_match_enum(obs_websocket_close_code: &String) ->
     })
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum OBSRequestBatchExecutionType {
     None,
     SerialRealtime,
@@ -126,6 +129,7 @@ pub fn obs_request_batch_execution_type_match_enum(obs_request_batch_execution_t
     })
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum OBSRequestStatus {
     Unknown,
     NoError,
@@ -242,6 +246,7 @@ pub fn obs_request_status_match_enum(obs_request_status: String) -> Result<OBSRe
     })
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum OBSEventSubscription {
     None,
     General,
