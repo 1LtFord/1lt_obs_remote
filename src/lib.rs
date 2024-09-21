@@ -159,6 +159,25 @@ fn scene_item_id(websocket: &mut Websocket, scene: &String, scene_item: &String)
     Ok(id)
 }
 
+pub fn create_record_chapter(websocket: &mut Websocket) -> Result<(), String> {
+    let mut payload = "{".to_string();
+    payload = payload + "\"op\":6,";
+    payload = payload + "\"d\":{";
+    payload = payload + "\"requestType\":\"CreateRecordChapter\",";
+    payload = payload + "\"requestId\":\"f819dcf0-89cc-11eb-8f0e-382c4ac93b9c\",";
+    payload = payload + "\"requestData\":{";
+    payload = format!("{payload}\"chapterName\":\"marker\"");
+    payload = payload + "}}}";
+    println!("{payload}");
+
+    let _answer = match send_and_recieve(websocket, payload) {
+        Ok(answer) => answer,
+        Err(error) => return Err(error)
+    };
+
+    Ok(())
+}
+
 fn send_and_recieve(websocket: &mut Websocket, payload: String) -> Result<Message, String>{
     let message = Message::new(true, crate::header::Opcode::TextFrame, true, payload);
     

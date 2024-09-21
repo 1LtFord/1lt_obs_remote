@@ -22,6 +22,7 @@ fn main() -> Result<(), String>{
             "toggle" => toggle_scene_item(websocket, args),
             "show_one" => show_one_scene_item(websocket, args),
             "show_scene" => show_scene(websocket, args),
+            "set_chapter" => set_chapter(websocket),
             _ => Err("Argument not recognised".to_string())
         }
     }
@@ -81,4 +82,11 @@ fn show_one_scene_item(mut websocket: Websocket, args: Vec<String>) -> Result<()
 
 
     Ok(())
+}
+
+fn set_chapter(mut websocket: Websocket) -> Result<(), String> {
+    match obs_remote_1lt::create_record_chapter(&mut websocket) {
+        Ok(()) => Ok(()),
+        Err(error) => Err(error)
+    }
 }
